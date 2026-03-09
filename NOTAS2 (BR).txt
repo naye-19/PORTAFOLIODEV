@@ -1,0 +1,136 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package com.bancolafise.hn.middleware.servicios.rest.internal.sofiarouter.tigo;
+
+import com.bancolafise.hn.apimodel.servicios.tigo.transaction.RequestConsultarRecargaTigo;
+import com.bancolafise.hn.apimodel.servicios.tigo.transaction.RequestEnviarPaqueTigo;
+import com.bancolafise.hn.apimodel.servicios.tigo.transaction.RequestEnviarRecargaTigo;
+import com.bancolafise.hn.generic.clases.generic.AppResponse;
+import com.bancolafise.hn.generic.clases.generic.JavaMapper;
+import com.bancolafise.hn.generic.enums.servicios.EnumServicios;
+import com.bancolafise.hn.generic.implementaciones.generic.consumos.ConsumosCoreRest;
+import com.bancolafise.hn.generic.implementaciones.generic.servicegeneric.ServiceGeneric;
+import com.bancolafise.hn.middleware.servicios.rest.internal.tokensjwt.BuilderRequestTokens;
+import com.google.gson.JsonObject;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+
+/**
+ *
+ * @author MOMARTINEZ
+ */
+public class BuilderRequestTigo {
+
+    private static final String clase = BuilderRequestTigo.class.getName();
+    private ServiceGeneric generic;
+    private ServiceGeneric genericService;
+    private HandlerResponseTigo handlerResponse;
+
+    public BuilderRequestTigo(ServiceGeneric genericService) {
+        this.genericService = genericService;
+        this.generic = new ServiceGeneric(EnumServicios.Servicios.SOFIAROUTER.getServicio());
+        this.handlerResponse = new HandlerResponseTigo(genericService);
+    }
+
+    public String ConsultarRecargasTigo(RequestConsultarRecargaTigo request, JsonObject requestSofia) throws IOException, Exception {
+        
+        String ruta = this.generic.getConfiguracion().getAsJsonObject("Transacciones").getAsJsonObject("Tigo").getAsJsonArray("recargas").get(0).getAsString();
+
+        BuilderRequestTokens jwt = new BuilderRequestTokens(this.genericService);
+        String token = jwt.getJWT(requestSofia.get("idMicroServicio").getAsInt());
+
+        ConsumosCoreRest HttpRest = new ConsumosCoreRest(this.generic.getConfiguracion(),this.genericService);
+        LinkedHashMap<String, String> headers = new LinkedHashMap<>();
+        headers.put("Content-Type", "application/json");
+        headers.put("Authorization", token);
+
+        LinkedHashMap<String, String> queryparams = new LinkedHashMap<>();
+        queryparams.put("numeroCelular", request.getNumeroCelular());
+        queryparams.put("tipoProducto", request.getTipoProducto());
+        queryparams.put("nombreTerminal", request.getNombreTerminal());
+        queryparams.put("codigoCajero", request.getCodigoCajero().toString());
+        queryparams.put("codigoTransaccion", request.getNumeroTransacccion().toString());
+        queryparams.put("codigoReferencia", request.getNumeroReferencia().toString());
+
+        AppResponse response = HttpRest.getCoreRest(ruta, headers, queryparams);
+
+        return this.handlerResponse.handlerResponseConsultarRecargasPaquetes(response, requestSofia);
+    }
+    
+     public String ConsultarPaqueTigo(RequestConsultarRecargaTigo request, JsonObject requestSofia) throws IOException, Exception {
+        
+         String ruta = this.generic.getConfiguracion().getAsJsonObject("Transacciones").getAsJsonObject("Tigo").getAsJsonArray("Paquetigos").get(0).getAsString();
+
+        BuilderRequestTokens jwt = new BuilderRequestTokens(this.genericService);
+        String token = jwt.getJWT(requestSofia.get("idMicroServicio").getAsInt());
+
+        ConsumosCoreRest HttpRest = new ConsumosCoreRest(this.generic.getConfiguracion(),this.genericService);
+        LinkedHashMap<String, String> headers = new LinkedHashMap<>();
+        headers.put("Content-Type", "application/json");
+        headers.put("Authorization", token);
+
+        LinkedHashMap<String, String> queryparams = new LinkedHashMap<>();
+        queryparams.put("numeroCelular", request.getNumeroCelular());
+        queryparams.put("tipoProducto", request.getTipoProducto());
+        queryparams.put("nombreTerminal", request.getNombreTerminal());
+        queryparams.put("codigoCajero", request.getCodigoCajero().toString());
+        queryparams.put("codigoTransaccion", request.getNumeroTransacccion().toString());
+        queryparams.put("codigoReferencia", request.getNumeroReferencia().toString());
+
+        AppResponse response = HttpRest.getCoreRest(ruta, headers, queryparams);
+
+        return this.handlerResponse.handlerResponseConsultarRecargasPaquetes(response, requestSofia);
+    }
+     
+     public String EnviarRecarga(RequestEnviarRecargaTigo request,JsonObject requestSofia) throws IOException, Exception {
+        
+        String ruta = this.generic.getConfiguracion().getAsJsonObject("Transacciones").getAsJsonObject("Tigo").getAsJsonArray("recargas").get(1).getAsString();
+        
+        BuilderRequestTokens jwt = new BuilderRequestTokens(this.genericService);
+        String token = jwt.getJWT(requestSofia.get("idMicroServicio").getAsInt());
+        
+        //Send Request 
+        ConsumosCoreRest HttpRest = new ConsumosCoreRest(this.generic.getConfiguracion(),this.genericService);
+        HashMap<String , String > headers = new HashMap< >();
+        headers.put("Content-Type", "application/json");
+        headers.put("Authorization", token);
+
+        JavaMapper<RequestEnviarRecargaTigo> mapper = new JavaMapper<>();
+        JsonObject body = mapper.getJson(request);
+        
+        AppResponse response =  HttpRest.postCoreRest(ruta,
+                                                      headers,
+                                                      body.toString());                                        
+        
+        return this.handlerResponse.handlerResponseEnviarRecarga(response, requestSofia);
+    }
+     
+      public String EnviarPaqueTigo(RequestEnviarPaqueTigo request,JsonObject requestSofia) throws IOException, Exception {
+        
+        String ruta = this.generic.getConfiguracion().getAsJsonObject("Transacciones").getAsJsonObject("Tigo").getAsJsonArray("Paquetigos").get(1).getAsString();
+        
+        BuilderRequestTokens jwt = new BuilderRequestTokens(this.genericService);
+        String token = jwt.getJWT(requestSofia.get("idMicroServicio").getAsInt());
+        
+        //Send Request 
+        ConsumosCoreRest HttpRest = new ConsumosCoreRest(this.generic.getConfiguracion(),this.genericService);
+        HashMap<String , String > headers = new HashMap< >();
+        headers.put("Content-Type", "application/json");
+        headers.put("Authorization", token);
+
+        JavaMapper<RequestEnviarPaqueTigo> mapper = new JavaMapper<>();
+        JsonObject body = mapper.getJson(request);
+        
+        AppResponse response =  HttpRest.postCoreRest(ruta,
+                                                      headers,
+                                                      body.toString());                                        
+        
+        return this.handlerResponse.handlerResponseEnviarRecarga(response, requestSofia);
+    }
+     
+
+}

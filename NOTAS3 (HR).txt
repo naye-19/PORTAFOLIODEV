@@ -1,0 +1,195 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package com.bancolafise.hn.middleware.servicios.rest.internal.sofiarouter.tigo;
+
+import com.bancolafise.hn.generic.clases.generic.AppResponse;
+import com.bancolafise.hn.generic.enums.http.EnumHttpStatus;
+import com.bancolafise.hn.generic.enums.sofia.EnumsStatus;
+import com.bancolafise.hn.generic.enums.sofia.EnumsTipoMensajes;
+import com.bancolafise.hn.generic.implementaciones.generic.caracteres.ServiceCaracteres;
+import com.bancolafise.hn.generic.implementaciones.generic.servicegeneric.ServiceGeneric;
+import com.bancolafise.hn.generic.implementaciones.generic.xml.XMLSofia;
+import com.google.gson.JsonObject;
+import javax.ws.rs.core.Response;
+
+/**
+ *
+ * @author MOMARTINEZ
+ */
+public class HandlerResponseTigo {
+     private ServiceGeneric generic;
+     
+     public HandlerResponseTigo(ServiceGeneric generic) {
+        this.generic = generic;
+    }
+     
+      public String handlerResponseConsultarRecargasPaquetes(AppResponse jsonresponse, JsonObject requestSofia) throws Exception {
+
+        int codigoStatus = jsonresponse.getResponse().getStatus();
+
+        if (codigoStatus == Response.Status.OK.getStatusCode()) {
+
+            String detalleXml = BuilderResponseTigo.crearResponseConsultarRecargaTigo(requestSofia, jsonresponse.getBody());
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.OK.getStatus(), "CONSULTA EXITOSA", EnumsTipoMensajes.TipoMensajes.OK.getTipoMensaje());
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+
+        }else if (codigoStatus == Response.Status.NO_CONTENT.getStatusCode()) {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(), 
+                    "Factura del cliente no encontrada en el sistema.",
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+            
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+        } else if (codigoStatus == EnumHttpStatus.HttpStatus.CLIENT_CLOSED_CONNECTION.get() || codigoStatus == EnumHttpStatus.HttpStatus.GATEWAY_TIMEOUT.get()||
+            codigoStatus == EnumHttpStatus.HttpStatus.BAD_GATEWAY.get() || codigoStatus == Response.Status.REQUEST_TIMEOUT.getStatusCode()) {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(),
+                    "Error de comunicacion, Proveedor no respondio la peticion.",
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+
+        }else if (codigoStatus == EnumHttpStatus.HttpStatus.INTERNAL_SERVER_ERROR.get()) {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(),
+                    "Error interno reportar error al area de tecnologia.",
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();    
+
+        } else {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(), 
+                    ServiceCaracteres.limpiarCaracteresSofia(jsonresponse.getBody().get("errormessage").getAsString(),200),
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+            
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+        }
+
+    }
+      
+       public String handlerResponseEnviarRecarga(AppResponse jsonresponse, JsonObject requestSofia) throws Exception {
+
+        int codigoStatus = jsonresponse.getResponse().getStatus();
+
+        if (codigoStatus == Response.Status.CREATED.getStatusCode()) {
+
+            String detalleXml = BuilderResponseTigo.crearResponseEnviarRecargaTigo(requestSofia, jsonresponse.getBody());
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.OK.getStatus(), "RECARGA EXITOSA", EnumsTipoMensajes.TipoMensajes.OK.getTipoMensaje());
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+        } else if (codigoStatus == EnumHttpStatus.HttpStatus.CLIENT_CLOSED_CONNECTION.get() || codigoStatus == EnumHttpStatus.HttpStatus.GATEWAY_TIMEOUT.get()||
+            codigoStatus == EnumHttpStatus.HttpStatus.BAD_GATEWAY.get() || codigoStatus == Response.Status.REQUEST_TIMEOUT.getStatusCode()) {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(),
+                    "Error de comunicacion, Proveedor no respondio la peticion.",
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+
+        }else if (codigoStatus == EnumHttpStatus.HttpStatus.INTERNAL_SERVER_ERROR.get()) {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(),
+                    "Error interno reportar error al area de tecnologia.",
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();    
+
+        } else {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(), 
+                    ServiceCaracteres.limpiarCaracteresSofia(jsonresponse.getBody().get("errormessage").getAsString(),200),
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+            
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+        }
+    }
+     
+       
+        public String handlerResponseEnviarPaqueTigo(AppResponse jsonresponse, JsonObject requestSofia) throws Exception {
+
+        int codigoStatus = jsonresponse.getResponse().getStatus();
+
+        if (codigoStatus == Response.Status.CREATED.getStatusCode()) {
+
+            String detalleXml = BuilderResponseTigo.crearResponseEnviarPaqueTigo(requestSofia, jsonresponse.getBody());
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.OK.getStatus(), "RECARGA EXITOSA", EnumsTipoMensajes.TipoMensajes.OK.getTipoMensaje());
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+        } else if (codigoStatus == EnumHttpStatus.HttpStatus.CLIENT_CLOSED_CONNECTION.get() || codigoStatus == EnumHttpStatus.HttpStatus.GATEWAY_TIMEOUT.get()||
+            codigoStatus == EnumHttpStatus.HttpStatus.BAD_GATEWAY.get() || codigoStatus == Response.Status.REQUEST_TIMEOUT.getStatusCode()) {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(),
+                    "Error de comunicacion, Proveedor no respondio la peticion.",
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+
+        }else if (codigoStatus == EnumHttpStatus.HttpStatus.INTERNAL_SERVER_ERROR.get()) {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(),
+                    "Error interno reportar error al area de tecnologia.",
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();    
+                
+        } else {
+
+            String detalleXml = "";
+
+            XMLSofia xml = new XMLSofia(EnumsStatus.Status.ERROR.getStatus(), 
+                    ServiceCaracteres.limpiarCaracteresSofia(jsonresponse.getBody().get("errormessage").getAsString(),200),
+                    EnumsTipoMensajes.TipoMensajes.ERROR.getTipoMensaje());
+            
+            xml.crearResponseXmlSofia(requestSofia.getAsJsonObject("body"), detalleXml);
+
+            return xml.getXML();
+        }
+    }
+}

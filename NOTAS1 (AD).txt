@@ -1,0 +1,201 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package com.bancolafise.hn.implementation.servicios.sofiarouter.tigo;
+
+import com.bancolafise.hn.apimodel.servicios.tigo.transaction.RequestConsultarRecargaTigo;
+import com.bancolafise.hn.apimodel.servicios.tigo.transaction.RequestEnviarPaqueTigo;
+import com.bancolafise.hn.apimodel.servicios.tigo.transaction.RequestEnviarRecargaTigo;
+import com.bancolafise.hn.generic.enums.servicios.EnumServicios;
+import com.bancolafise.hn.generic.implementaciones.generic.log.Tracing;
+import com.bancolafise.hn.generic.implementaciones.generic.servicegeneric.ServiceGeneric;
+import com.bancolafise.hn.utils.servicios.sofiarouter.UtilsSofia;
+import com.bancolafise.hn.generic.enums.core.EnumsCore;
+import com.bancolafise.hn.middleware.servicios.rest.internal.sofiarouter.tigo.BuilderRequestTigo;
+import com.bancolafise.hn.utils.servicios.tigo.EnumTipoProductosTigo;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import java.io.IOException;
+import java.math.BigDecimal;
+
+/**
+ *
+ * @author MOMARTINEZ
+ */
+public class AdapterTigo {
+
+    private static ServiceGeneric generic;
+
+    public AdapterTigo() {
+        this.generic = new ServiceGeneric(EnumServicios.Servicios.TIGO.getServicio());
+    }
+
+    public String adpOpcionesTigo(JsonObject request, Integer modalidad) throws IOException, Exception {
+
+        JsonArray campos = UtilsSofia.getDetalleCampos(request);
+        String opcionTigo = UtilsSofia.getValorCampoSinRemove(campos, "TIPTRANS2");
+
+        if (opcionTigo.equals(EnumTipoProductosTigo.TipoProductos.RECARGAS.getTipoProducto()) && modalidad == 1) {
+
+            return adpConsultarRecargas(request);
+
+        } else if (opcionTigo.equals(EnumTipoProductosTigo.TipoProductos.RECARGAS.getTipoProducto()) && modalidad == 2) {
+
+            return adpEnviarRecarga(request);
+        } else if (opcionTigo.equals(EnumTipoProductosTigo.TipoProductos.PAQUETIGOS.getTipoProducto()) && modalidad == 1) {
+
+            return adpConsultarPaqueTigos(request);
+        } else if (opcionTigo.equals(EnumTipoProductosTigo.TipoProductos.PAQUETIGOS.getTipoProducto()) && modalidad == 2) {
+
+            return adpEnviarPaqueTigo(request);
+        } else {
+            throw crearExceptionOpcionNoValida();
+        }
+    }
+
+    public String adpConsultarRecargas(JsonObject request) throws IOException, Exception {
+
+        Tracing tracing = new Tracing(generic, "adpConsultarRecargas");
+
+        JsonObject encabezado = request.getAsJsonObject("body").getAsJsonObject("clsTransaccion");
+        JsonArray campos = UtilsSofia.getDetalleCampos(request);
+
+        RequestConsultarRecargaTigo requestTigo
+                = new RequestConsultarRecargaTigo(UtilsSofia.getValorCampoSinRemove(campos, "NUMCEL"),
+                        UtilsSofia.getValorCampoSinRemove(campos, "TIPTRANS2"),
+                        UtilsSofia.getValorCampoSinRemove(campos, "MENTEXTO"),
+                        encabezado.get("Cajero").getAsInt(),
+                        encabezado.get("NumTransaccion").getAsInt(),
+                        new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TNUDOCTRA"))
+                );
+
+        BuilderRequestTigo helperinternalTigo = new BuilderRequestTigo(this.generic);
+
+        String response = helperinternalTigo.ConsultarRecargasTigo(requestTigo, request);
+
+        tracing.Response_LOG_Tracing(generic, "adpConsultarRecargas");
+        return response;
+    }
+
+    public String adpConsultarPaqueTigos(JsonObject request) throws IOException, Exception {
+
+        Tracing tracing = new Tracing(generic, "adpConsultarPaqueTigos");
+
+        JsonObject encabezado = request.getAsJsonObject("body").getAsJsonObject("clsTransaccion");
+        JsonArray campos = UtilsSofia.getDetalleCampos(request);
+
+        RequestConsultarRecargaTigo requestTigo
+                = new RequestConsultarRecargaTigo(UtilsSofia.getValorCampoSinRemove(campos, "NUMCEL"),
+                        UtilsSofia.getValorCampoSinRemove(campos, "TIPTRANS2"),
+                        UtilsSofia.getValorCampoSinRemove(campos, "MENTEXTO"),
+                        encabezado.get("Cajero").getAsInt(),
+                        encabezado.get("NumTransaccion").getAsInt(),
+                        new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TNUDOCTRA"))
+                );
+
+        BuilderRequestTigo helperinternalTigo = new BuilderRequestTigo(this.generic);
+
+        String response = helperinternalTigo.ConsultarPaqueTigo(requestTigo, request);
+
+        tracing.Response_LOG_Tracing(generic, "adpConsultarPaqueTigos");
+        return response;
+    }
+
+    public String adpEnviarRecarga(JsonObject request) throws IOException, Exception {
+        Tracing tracing = new Tracing(generic, "adpEnviarRecarga");
+
+        if (!UtilsSofia.SoloUnaSeleccion(request, "SELTRAN")) {
+            throw UtilsSofia.SoloUnaFacturaSeleccionada();
+        }
+
+        JsonObject encabezado = request.getAsJsonObject("body").getAsJsonObject("clsTransaccion");
+        JsonArray campos = UtilsSofia.getDetalleCampos(request);
+
+        JsonObject facturaSeleccionada = UtilsSofia.getFacturaSeleccionada(request, "SELTRAN");
+        String descripcionTransaccion = "RECARGA TIGO DE: " + UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "MONTRN");
+
+        RequestEnviarRecargaTigo requestTigo;
+        requestTigo = new RequestEnviarRecargaTigo(UtilsSofia.getValorCampoSinRemove(campos, "MENTEXTO"),
+                encabezado.get("Cajero").getAsString(),
+                UtilsSofia.getValorCampoSinRemove(campos, "TDRTCD"),
+                UtilsSofia.getValorCampoSinRemove(campos, "NUMCEL"),
+                UtilsSofia.getValorCampoSinRemove(campos, "TIPTRANS2"),
+                UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "SELECTOR"),
+                UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "CODTRN"),
+                UtilsSofia.getValorCampoSinRemove(campos, "FORPAG"),
+                EnumsCore.TipoMonedas.LEMPIRAS.getCodigoMoneda(),
+                UtilsSofia.getValorCampoSinRemove(campos, "SECUEN"),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TVAEFEHOY")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "MONTOACUM")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "DOCNUESTROCARGO")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TVACHEHOY")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "DOCNUESTROCARGO")),
+                descripcionTransaccion,
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "MONTRN")),
+                BigDecimal.ZERO,
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TNUDOCTRA")),
+                UtilsSofia.getValorCampoSinRemove(campos, "NUMCEL"),
+                encabezado.get("Agencia").getAsInt());
+
+        BuilderRequestTigo helperinternalTigo = new BuilderRequestTigo(this.generic);
+
+        String response = helperinternalTigo.EnviarRecarga(requestTigo, request);
+
+        tracing.Response_LOG_Tracing(generic, "adpEnviarRecarga");
+        return response;
+    }
+
+    public String adpEnviarPaqueTigo(JsonObject request) throws IOException, Exception {
+
+        Tracing tracing = new Tracing(generic, "adpEnviarPaqueTigo");
+
+        if (!UtilsSofia.SoloUnaSeleccion(request, "SELTRAN")) {
+            throw UtilsSofia.SoloUnaFacturaSeleccionada();
+        }
+
+        JsonObject encabezado = request.getAsJsonObject("body").getAsJsonObject("clsTransaccion");
+        JsonArray campos = UtilsSofia.getDetalleCampos(request);
+
+        JsonObject facturaSeleccionada = UtilsSofia.getFacturaSeleccionada(request, "SELTRAN");
+        String descripcionTransaccion = "PAQUETIGO DE: " + UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "MONTRN");
+
+        RequestEnviarPaqueTigo requestTigo = new RequestEnviarPaqueTigo(UtilsSofia.getValorCampoSinRemove(campos, "MENTEXTO"),
+                encabezado.get("Cajero").getAsString(),
+                UtilsSofia.getValorCampoSinRemove(campos, "TDRTCD"),
+                UtilsSofia.getValorCampoSinRemove(campos, "NUMCEL"),
+                UtilsSofia.getValorCampoSinRemove(campos, "TIPTRANS2"),
+                UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "SELECTOR"),
+                UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "CODTRN"),
+                UtilsSofia.getValorCampoSinRemove(campos, "FORPAG"),
+                EnumsCore.TipoMonedas.LEMPIRAS.getCodigoMoneda(),
+                UtilsSofia.getValorCampoSinRemove(campos, "SECUEN"),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TVAEFEHOY")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "MONTOACUM")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "DOCNUESTROCARGO")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TVACHEHOY")),
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "DOCNUESTROCARGO")),
+                descripcionTransaccion,
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(facturaSeleccionada.getAsJsonArray("clsColumna"), "MONTRN")),
+                BigDecimal.ZERO,
+                new BigDecimal(UtilsSofia.getValorCampoSinRemove(campos, "TNUDOCTRA")),
+                UtilsSofia.getValorCampoSinRemove(campos, "NUMCEL"),
+                encabezado.get("Agencia").getAsInt());
+
+        BuilderRequestTigo helperinternalTigo = new BuilderRequestTigo(this.generic);
+
+        String response = helperinternalTigo.EnviarPaqueTigo(requestTigo, request);
+
+        tracing.Response_LOG_Tracing(generic, "adpEnviarPaqueTigo");
+        return response;
+    }
+
+    private Exception crearExceptionOpcionNoValida() {
+
+        Exception error = new Exception("Opcion de Tigo no tiene permitido reversion.");
+
+        return error;
+    }
+
+}

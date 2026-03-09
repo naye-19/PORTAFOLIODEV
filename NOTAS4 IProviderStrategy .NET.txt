@@ -1,0 +1,26 @@
+using LAFISE.TransactionsRouter.Domain.ApiContract.Sofia;
+using AS400Request = LAFISE.TransactionsRouter.Domain.ApiContract.AS400.Request;
+using Request = LAFISE.TransactionsRouter.Domain.ApiContract.Lafiservicios.Request;
+using Response = LAFISE.TransactionsRouter.Domain.ApiContract.Lafiservicios.Response;
+
+namespace LAFISE.TransactionsRouter.Application.Common.Interfaces
+{
+    public interface IProviderStrategy : IProviderStrategy<IAS400Service> { }
+
+    public interface IProviderStrategy<T> where T : IAS400Service
+    {
+        AS400Request.Validation GetMainData(SofiaBase sofia);
+
+        (bool, Request.Debt?) MakeRequest(SofiaBase sofia, CancellationToken cancellationToken);
+
+        void HandleRequest(SofiaBase sofia, Response.Debt debtResponse);
+
+        (bool, Request.Payment?) MakePayment(SofiaBase sofia, CancellationToken cancellationToken);
+
+        Task HandlePayment(T as400, SofiaBase sofia, Response.Check paymentResponse);
+
+        Request.Reverse MakeReverse(SofiaBase sofia, CancellationToken cancellationToken);
+
+        Task HandleReverse(T as400, SofiaBase sofia);
+    }
+}

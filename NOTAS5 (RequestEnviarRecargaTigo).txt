@@ -1,0 +1,146 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package com.bancolafise.hn.apimodel.servicios.tigo.transaction;
+
+import java.math.BigDecimal;
+
+/**
+ *
+ * @author MOMARTINEZ
+ */
+public class RequestEnviarRecargaTigo {
+
+    private final String nombreTerminal;
+    private final String codigoCajero;
+    private final String codigoTransaccion;
+    private final String numeroCelular;
+    private final String tipoProductoInterno;
+    private final String codigoSelector;
+    private final String codigoProducto;
+    private final String formaPago;
+    private final String moneda;
+    private final String secuencial;
+    private final BigDecimal montoEfectivo;
+    private final BigDecimal montoAcumulado;
+    private final BigDecimal montoChequeLocal;
+    private final BigDecimal montoChequeNoLocal;
+    private final BigDecimal montoChequeNuestro;
+    private final String descripcionTransaccion;
+    private final BigDecimal montoTotal;
+    private final BigDecimal montoComision;
+    private final BigDecimal codigoReferencia;
+    private final String codigoReferenciaOtro;
+    private final Integer agencia;
+
+    public String getNombreTerminal() {
+        return nombreTerminal;
+    }
+
+    public String getCodigoCajero() {
+        return codigoCajero;
+    }
+
+    public String getCodigoTransaccion() {
+        return codigoTransaccion;
+    }
+
+    public String getNumeroCelular() {
+        return numeroCelular;
+    }
+
+    public String getTipoProductoInterno() {
+        return tipoProductoInterno;
+    }
+
+    public String getCodigoSelector() {
+        return codigoSelector;
+    }
+
+    public String getCodigoProducto() {
+        return codigoProducto;
+    }
+
+    public String getFormaPago() {
+        return formaPago;
+    }
+
+    public String getMoneda() {
+        return moneda;
+    }
+
+    public String getSecuencial() {
+        return secuencial;
+    }
+
+    public BigDecimal getMontoEfectivo() {
+        return montoEfectivo;
+    }
+
+    public BigDecimal getMontoAcumulado() {
+        return montoAcumulado;
+    }
+
+    public BigDecimal getMontoChequeLocal() {
+        return montoChequeLocal;
+    }
+
+    public BigDecimal getMontoChequeNoLocal() {
+        return montoChequeNoLocal;
+    }
+
+    public BigDecimal getMontoChequeNuestro() {
+        return montoChequeNuestro;
+    }
+
+    public String getDescripcionTransaccion() {
+        return descripcionTransaccion;
+    }
+
+    public BigDecimal getMontoTotal() {
+        return montoTotal;
+    }
+
+    public BigDecimal getMontoComision() {
+        return montoComision;
+    }
+
+    public BigDecimal getCodigoReferencia() {
+        return codigoReferencia;
+    }
+
+    public String getCodigoReferenciaOtro() {
+        return codigoReferenciaOtro;
+    }
+
+    public Integer getAgencia() {
+        return agencia;
+    }
+
+    public RequestEnviarRecargaTigo(String nombreTerminal, String codigoCajero, String codigoTransaccion, String numeroCelular, String tipoProductoInterno, String codigoSelector, String codigoProducto, String formaPago, String moneda, String secuencial, BigDecimal montoEfectivo, BigDecimal montoAcumulado, BigDecimal montoChequeLocal, BigDecimal montoChequeNoLocal, BigDecimal montoChequeNuestro, String descripcionTransaccion, BigDecimal montoTotal, BigDecimal montoComision, BigDecimal codigoReferencia, String codigoReferenciaOtro, Integer agencia) {
+
+        this.nombreTerminal = nombreTerminal;
+        this.codigoCajero = codigoCajero;
+        this.codigoTransaccion = codigoTransaccion;
+        this.numeroCelular = numeroCelular;
+        this.tipoProductoInterno = tipoProductoInterno;
+        this.codigoSelector = codigoSelector;
+        this.codigoProducto = codigoProducto;
+        this.formaPago = formaPago;
+        this.moneda = moneda;
+        this.secuencial = secuencial;
+        this.montoEfectivo = montoEfectivo;
+        this.montoAcumulado = montoAcumulado;
+        this.montoChequeLocal = montoChequeLocal;
+        this.montoChequeNoLocal = montoChequeNoLocal;
+        this.montoChequeNuestro = montoChequeNuestro;
+        this.descripcionTransaccion = descripcionTransaccion;
+        this.montoTotal = montoTotal;
+        this.montoComision = montoComision;
+        this.codigoReferencia = codigoReferencia;
+        this.codigoReferenciaOtro = codigoReferenciaOtro;
+        this.agencia = agencia;
+    }
+}
