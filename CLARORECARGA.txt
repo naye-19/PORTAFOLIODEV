@@ -1,0 +1,306 @@
+using System.Linq;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using FluentValidation.Validators;
+using LAFISE.TransactionsRouter.Application.Common.Interfaces;
+using LAFISE.TransactionsRouter.Domain.ApiContract.AS400.Request;
+using LAFISE.TransactionsRouter.Domain.ApiContract.Lafiservicios.Common;
+using LAFISE.TransactionsRouter.Domain.ApiContract.Lafiservicios.Request;
+using LAFISE.TransactionsRouter.Domain.ApiContract.Sofia;
+using LAFISE.TransactionsRouter.Domain.Enums.BLHN;
+using LAFISE.TransactionsRouter.Domain.Enums.Sofia;
+using Lafiservicios.Domain.Core.Enums;
+using MediatR.NotificationPublishers;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Extensions.Logging;
+using AS400Response = LAFISE.TransactionsRouter.Domain.ApiContract.AS400.Response;
+using Request = LAFISE.TransactionsRouter.Domain.ApiContract.Lafiservicios.Request;
+using Response = LAFISE.TransactionsRouter.Domain.ApiContract.Lafiservicios.Response;
+
+namespace LAFISE.TransactionsRouter.Infrastructure.Providers.BLHN.CLARO
+{
+    public class ClaroRecargasStrategy(ILogger<ClaroRecargasStrategy> logger) : IProviderStrategy
+    {
+        private readonly ILogger<ClaroRecargasStrategy> _logger = logger;
+
+        private readonly JsonSerializerOptions _encoderOpts = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, WriteIndented = false };
+
+        const string Reference = "TNUDOCTRA";
+        const string Amount = "SALDOLPS";
+        const string PhoneNumber = "NUMCEL";
+
+        public Validation GetMainData(SofiaBase sofia)
+        {
+            return new Validation
+            {
+                Transaction = sofia.TransactionNumber ?? 0,
+                Reference = sofia.FindFieldValue<int>(Reference),
+                Teller = sofia.Teller!,
+                Currency = (Currency.HNL).ToCurrency(),
+                Terminal = sofia.FindFieldValue<string>("TERMSOFIA")
+            };
+        }
+
+        #region Debt
+        public (bool, Debt?) MakeRequest(SofiaBase sofia, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("ClaroRecargasStrategy => MakeRequest(). Starting to make debt request content.");
+            return (true, new Request.Debt
+            {
+                Branch = sofia.Branch.ToString()!,
+                CustomerId = 0,
+                InputFields = []
+            });
+        }
+
+        void IProviderStrategy<IAS400Service>.HandleRequest(SofiaBase sofia, Response.Debt debtResponse)
+        {
+            _logger.LogInformation("ClaroRecargasStrategy => HandleRequest(). Starting to handle debt response content.");
+
+            var debt = debtResponse.OutstandingDebts[0];
+
+            sofia.SetFields(new Dictionary<string, object?>
+            {
+                { "codigoProducto", debtResponse.PaymentId },
+                { "idProducto", debt.Id },
+                { "descripcion", debt.Description },
+                { "precio", debt.Reference }
+            });
+
+            sofia.SetStatus(Status.Success, "CONSULTA EXITOSA");
+
+            _logger.LogInformation("ClaroRecargasStrategy => HandleRequest(). Finished handle debt response content.");
+        }
+        #endregion
+
+        #region Setting
+        public (bool, Setting?) MakeSettingRequest(SofiaBase sofia, CancellationToken cancellationToken)
+        {
+            return (true, new Request.Setting
+            {
+                Branch = sofia.Branch.ToString()!,
+                CustomerId = 0
+            });
+        }
+
+        public void HandleSettingRequest(SofiaBase sofia, Response.Setting settingResponse)
+        {
+            _logger.LogInformation("ClaroRecargasStrategy => HandleSettingRequest(). Starting to handle setting response content.");
+
+            List<Column> listOptions = new();
+            var inputOption = settingResponse.InputField?.Where(x => x.Key == "Amount").Select(x => x.Options).FirstOrDefault();
+
+            sofia.SetFields(new Dictionary<string, object?> { { "NUMFACTURA", "RECARGA ELECTRONICA" } });
+
+            if (inputOption is not null)
+            {
+                listOptions.AddRange(inputOption
+                    .Where(option => option is not null)
+                    .Select(option => new Column { Name = string.IsNullOrEmpty(option.Label) ? "" : option.Label, Value = string.IsNullOrEmpty(option.Value) ? "" : option.Value }));
+
+                sofia.SetGrid("GRIDCLARO", 2593,
+                    new List<Record>()
+                    {
+                        new Record() { Columns = listOptions }
+                    }
+                );
+            }
+
+            sofia.SetStatus(Status.Success, "CONSULTA EXITOSA");
+
+            _logger.LogInformation("ClaroRecargasStrategy => HandleRequest(). Finished handle setting response content.");
+        }
+        #endregion
+
+        #region Payment
+        public (bool, Payment?) MakePayment(SofiaBase sofia, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("ClaroRecargasStrategy => MakePayment(). Starting making payment request content.");
+
+            return (true, new Request.Payment
+            {
+                Branch = sofia.Branch.ToString()!,
+                PaymentId = sofia.FindFieldValue<string>("IDPAGO"),
+                CustomerId = 0,
+                PaymentMethod = PaymentMethod.ExternalAccounting,
+                PaymentReference = sofia.FindFieldValue<int>(Reference),
+                ExternalTransactionId = sofia.FindFieldValue<string>(Reference),
+                DebitAccount = 0,
+                DebitAccountCurrency = CurrencyType.HNL,
+                InputFields =
+                [
+                    new()
+                    {
+                        Key = "PhoneNumber",
+                        Type = "Int",
+                        Value = sofia.FindFieldValue<int>(PhoneNumber).ToString()
+                    },
+                    new()
+                    {
+                        Key = "AreaCode",
+                        Type = "Int",
+                        Value = sofia.FindFieldValue<int>("AREACODE").ToString()
+                    },
+                    new()
+                    {
+                        Key = "Amount",
+                        Type = "Enum",
+                        Value = sofia.FindFieldValue<int>(Amount).ToString()
+                    }
+                ],
+                OutstandingDebts =
+                [
+                    new()
+                    {
+                        Id = sofia.FindFieldValue<int>(PhoneNumber).ToString(),
+                        Amount = sofia.FindFieldValue<decimal>(Amount),
+                        Currency = nameof(CurrencyType.HNL).ToString(),
+                    }
+                ]
+            });
+        }
+
+        public async Task HandlePayment(IAS400Service as400, SofiaBase sofia, Response.Check paymentResponse)
+        {
+            _logger.LogInformation("ClaroRecargasStrategy => HandlePayment(). Starting to handle payment response content.");
+
+            #region Increase balance
+            var balance = CreateBalanceRequest(sofia);
+            var increase = await as400.IncreaseBalance(balance);
+
+            if (!AS400Response.StoreProcedure.ValidateCoreResponse(increase))
+            {
+                _logger.LogError("ClaroRecargasStrategy => HandlePayment(). Increase balance failed: {Response}", JsonSerializer.Serialize(increase.Data, _encoderOpts));
+
+                sofia.SetStatus(Status.Error, Errors.IncreaseBalance);
+                return;
+            }
+            #endregion
+
+            #region Save AUDIT
+            var save = CreateSaveRequest(sofia);
+            var record = await as400.SaveAudit(save);
+
+            if (!AS400Response.StoreProcedure.ValidateCoreResponse(record))
+            {
+                _logger.LogError("ClaroRecargasStrategy => HandlePayment(). Save transaction on AUDIT failed: {Response}", JsonSerializer.Serialize(record.Data, _encoderOpts));
+
+                sofia.SetStatus(Status.Error, Errors.SaveAudit);
+                return;
+            }
+            #endregion
+            /////////////////////////////////////////////////////////////// VALIDAR DESDE AQUI
+            var response = paymentResponse.DebtToPay![0].AdditionalData!;
+
+            sofia
+                .SetField("CHECKSUM", response.GetValueOrDefault("Checksum"))
+                .SetField("REFPAGO", response.GetValueOrDefault("PaymentReference"));
+
+            sofia.SetStatus(Status.Success, "PAGO REALIZADO");
+
+            _logger.LogInformation("ClaroRecargasStrategy => HandlePayment(). Finished handle payment response content. Balance: {BALANCE} and Save: {SAVE} executions.",
+                JsonSerializer.Serialize(increase.Data, _encoderOpts), JsonSerializer.Serialize(record.Data, _encoderOpts));
+        }
+        #endregion
+
+        #region Reverse
+        public async Task HandleReverse(IAS400Service as400, SofiaBase sofia)
+        {
+            _logger.LogInformation("ClaroRecargasStrategy => HandleReverse(). Starting to handle reverse response content.");
+
+            #region Decrease balance
+            var balance = CreateBalanceRequest(sofia);
+            var decrease = await as400.DecreaseBalance(balance);
+
+            if (!AS400Response.StoreProcedure.ValidateCoreResponse(decrease))
+            {
+                _logger.LogError("ClaroRecargasStrategy => HandleReverse(). Decrease balance failed: {Response}", JsonSerializer.Serialize(decrease.Data, _encoderOpts));
+
+                sofia.SetStatus(Status.Error, Errors.DecreaseBalance);
+                return;
+            }
+            #endregion
+
+            #region Reverse AUDIT
+            var reverse = CreateReverseRequest(sofia);
+            var record = await as400.ReverseAudit(reverse);
+
+            if (!AS400Response.StoreProcedure.ValidateCoreResponse(record))
+            {
+                _logger.LogError("ClaroRecargasStrategy => HandleReverse(). Reverse transaction on AUDIT failed: {Response}", JsonSerializer.Serialize(record.Data, _encoderOpts));
+
+                sofia.SetStatus(Status.Error, Errors.ReverseAudit);
+                return;
+            }
+            #endregion
+
+            sofia.SetStatus(Status.Success, "REVERSION EXITOSA");
+
+            _logger.LogInformation("ClaroRecargasStrategy => HandleReverse(). Finished handle reverse response content. Balance: {BALANCE} and Reverse: {REVERSE} executions.",
+                JsonSerializer.Serialize(decrease.Data, _encoderOpts), JsonSerializer.Serialize(record.Data, _encoderOpts));
+        }
+
+        public Reverse MakeReverse(SofiaBase sofia, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("ClaroRecargasStrategy => MakeReverse(). Starting making reverse request content.");
+
+            return new Request.Reverse
+            {
+                PaymentId = sofia.FindFieldValue<string>("IDPAGO")
+            };
+        }
+        #endregion
+
+        #region Private methods
+        private Balance CreateBalanceRequest(SofiaBase sofia)
+        {
+            var request = new Balance
+            {
+                Teller = sofia.Teller,
+                Currency = Currency.HNL.ToCurrency(),
+                Cash = sofia.FindFieldValue<decimal>(Amount)
+            };
+
+            _logger.LogInformation("ClaroRecargasStrategy => CreateBalanceRequest(). Making request to update balance: {BALANCE}", JsonSerializer.Serialize(request, _encoderOpts));
+            return request;
+        }
+
+        private ReverseAudit CreateReverseRequest(SofiaBase sofia)
+        {
+            var request = new ReverseAudit
+            {
+                Transaction = sofia.TransactionNumber,
+                Reference = sofia.FindFieldValue<string>(Reference)
+            };
+
+            _logger.LogInformation("ClaroRecargasStrategy => CreateReverseRequest(). Making request to reverse in AUDIT: {RECORD}", JsonSerializer.Serialize(request, _encoderOpts));
+            return request;
+        }
+
+        private SaveAudit CreateSaveRequest(SofiaBase sofia)
+        {
+            var request = new SaveAudit
+            {
+                Teller = sofia.Teller,
+                Currency = Currency.HNL.ToCurrency(),
+                Secuencial = sofia.Secuencial,
+                Cash = sofia.FindFieldValue<decimal>(Amount),
+                LocalCheck = sofia.FindFieldValue<decimal>(Amount),
+                NonlocalCheck = 0,
+                Transaction = sofia.TransactionNumber,
+                DebitAccount = 0,
+                CreditAccount = 0,
+                Description = $"COMPRA RECARGA CLARO {sofia.FindFieldValue<string>(PhoneNumber)}",
+                TotalAmount = sofia.FindFieldValue<decimal>(Amount),
+                Reference = sofia.FindFieldValue<string>(Reference),
+                OtherReference = sofia.FindFieldValue<string>(PhoneNumber),
+                Comision = 0,
+                Branch = sofia.Branch
+            };
+
+            _logger.LogInformation("ClaroRecargasStrategy => CreateSaveRequest(). Making request to save in AUDIT: {RECORD}", JsonSerializer.Serialize(request, _encoderOpts));
+            return request;
+        }
+        #endregion
+    }
+}
