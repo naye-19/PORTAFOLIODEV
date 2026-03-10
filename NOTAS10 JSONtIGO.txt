@@ -1,0 +1,35 @@
+------------------------ REQUEST RECARGA TIGO -------------------------
+
+{
+  "branch": "1",
+  "customer_id": 376236,
+  "payment_method": "InternalAccounting",
+  "payment_reference": "referencia de caja",
+  "external_transaction_id": "0",
+  "debit_account": 130504000513,
+  "debit_account_currency": "HNL",
+  "input_fields": [
+        {
+            "key": "PhoneNumber",
+            "type": "Int",
+            "value": "99163494"
+        },
+        {
+            "key": "AreaCode",
+            "type": "Int",
+            "value": "504"
+        },
+        {
+            "key": "Amount",
+            "type": "Int",
+            "value": "10"
+        }
+    ],
+  "outstanding_debts": [
+        {
+            "description": "Compra de Recarga Tigo",
+            "amount": 15,
+            "currency": "HNL"
+        }
+    ]
+}
